@@ -11,5 +11,9 @@
   "description": "",
   "devDependencies": {
     "electron": "^39.2.7"
+  },
+  "dependencies": {
+    "git": "^0.1.5",
+    "lfs": "^0.0.4"
   }
 }
