@@ -36,6 +36,9 @@ const EPG_CACHE_DURATION = 5 * 60 * 1000;
 let currentSelectedItem = null;
 let currentStreamUrl = null;
 
+// HLS.js instance
+let hls = null;
+
 /* ========================= FAVORITES ========================= */
 const FAV_KEY = "iptv_favs_v1";
 const RESUME_KEY = "iptv_resume_v1";
@@ -90,10 +93,84 @@ function toast(msg, icon = "ℹ️") {
 
 /* ========================= VIDEO PLAYER ========================= */
 
+// Détecter les pistes audio et sous-titres avec ffprobe
+async function detectStreamTracks(url) {
+  return new Promise((resolve, reject) => {
+    const { exec } = require("child_process");
+
+    // Essayer ffprobe (vient avec ffmpeg) pour analyser le flux
+    const cmd = `ffprobe -v quiet -print_format json -show_streams "${url}"`;
+
+    console.log("🔍 Détection des pistes avec ffprobe...");
+    toast("🔍 Analyse du flux...", "ℹ️");
+
+    exec(cmd, { timeout: 10000 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error("Erreur ffprobe:", error);
+        console.log("Essayons avec vlc --list...");
+
+        // Fallback : essayer avec VLC
+        const vlcCmd = `cvlc --list "${url}" 2>&1 | grep -E "(audio|subtitle|spu)"`;
+        exec(vlcCmd, { timeout: 10000 }, (err2, out2) => {
+          if (err2) {
+            reject(new Error("Impossible de détecter les pistes"));
+          } else {
+            console.log("Sortie VLC:", out2);
+            resolve({ method: "vlc", output: out2 });
+          }
+        });
+        return;
+      }
+
+      try {
+        const data = JSON.parse(stdout);
+        console.log("📊 Données ffprobe:", data);
+
+        const audioTracks = [];
+        const subtitleTracks = [];
+
+        if (data.streams) {
+          data.streams.forEach((stream, index) => {
+            if (stream.codec_type === "audio") {
+              audioTracks.push({
+                index: stream.index,
+                codec: stream.codec_name,
+                language: stream.tags?.language || "inconnu",
+                title: stream.tags?.title || `Audio ${index + 1}`,
+                channels: stream.channels,
+              });
+            } else if (stream.codec_type === "subtitle") {
+              subtitleTracks.push({
+                index: stream.index,
+                codec: stream.codec_name,
+                language: stream.tags?.language || "inconnu",
+                title: stream.tags?.title || `Sous-titre ${index + 1}`,
+              });
+            }
+          });
+        }
+
+        console.log("✅ Pistes audio détectées:", audioTracks.length);
+        console.log("✅ Sous-titres détectés:", subtitleTracks.length);
+        console.log("Détails audio:", audioTracks);
+        console.log("Détails sous-titres:", subtitleTracks);
+
+        resolve({ audioTracks, subtitleTracks });
+      } catch (parseError) {
+        console.error("Erreur de parsing JSON:", parseError);
+        reject(parseError);
+      }
+    });
+  });
+}
+
 function playInPlayer(url, title = "Lecture en cours", startTimeSeconds = 0) {
   const modal = document.getElementById("videoPlayerModal");
   const titleEl = document.getElementById("videoTitle");
   const videoElement = document.getElementById("videoPlayer");
+
+  // Sauvegarder l'URL actuelle pour la détection des pistes
+  currentStreamUrl = url;
 
   if (!videoElement) {
     toast("❌ Élément vidéo introuvable", "⚠️");
@@ -105,7 +182,12 @@ function playInPlayer(url, title = "Lecture en cours", startTimeSeconds = 0) {
 
   console.log("Chargement du flux:", url);
 
-  // Utiliser directement l'élément HTML5 video pour plus de compatibilité avec IPTV
+  // Nettoyer l'ancienne instance HLS
+  if (hls) {
+    hls.destroy();
+    hls = null;
+  }
+
   // Nettoyer l'ancienne source
   videoElement.pause();
   videoElement.removeAttribute("src");
@@ -113,78 +195,232 @@ function playInPlayer(url, title = "Lecture en cours", startTimeSeconds = 0) {
     videoElement.removeChild(videoElement.firstChild);
   }
 
-  // Créer un nouvel élément source
-  const source = document.createElement("source");
-  source.src = url;
-
-  // Déterminer le type MIME
-  if (url.includes(".m3u8") || url.includes("m3u8")) {
-    source.type = "application/x-mpegURL";
-  } else if (url.includes("format=ts") || url.includes(".ts")) {
-    source.type = "video/mp2t";
-  } else if (url.includes(".mp4")) {
-    source.type = "video/mp4";
-  }
-
-  videoElement.appendChild(source);
-
-  // Gestionnaire d'erreurs
   let hasError = false;
-  videoElement.onerror = function (e) {
-    if (hasError) return; // Éviter les erreurs en cascade
-    hasError = true;
+  const isHLS = url.includes(".m3u8") || url.includes("m3u8");
 
-    console.error("Erreur de chargement vidéo:", e);
-    const error = videoElement.error;
-    if (error) {
-      console.error("Code d'erreur:", error.code, "Message:", error.message);
-    }
+  // Utiliser HLS.js pour les flux HLS
+  if (isHLS && typeof Hls !== "undefined" && Hls.isSupported()) {
+    console.log("Utilisation de HLS.js pour le flux");
+    hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      backBufferLength: 90,
+    });
 
-    toast("❌ Impossible de lire ce flux. Essayez VLC.", "⚠️");
+    hls.loadSource(url);
+    hls.attachMedia(videoElement);
 
-    // Proposer d'ouvrir avec VLC après 2 secondes
-    setTimeout(() => {
-      if (
-        confirm(
-          "Impossible de lire le flux dans le lecteur intégré.\n\nVoulez-vous l'ouvrir avec VLC ?"
-        )
-      ) {
-        closeVideoPlayer();
-        playInVLC(url, startTimeSeconds);
-      } else {
-        closeVideoPlayer();
+    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+      console.log("Manifest HLS chargé");
+      console.log("Pistes audio disponibles:", hls.audioTracks.length);
+      console.log(
+        "Détails des pistes audio:",
+        JSON.stringify(hls.audioTracks, null, 2)
+      );
+      console.log(
+        "Pistes de sous-titres disponibles:",
+        hls.subtitleTracks.length
+      );
+      console.log(
+        "Détails des sous-titres:",
+        JSON.stringify(hls.subtitleTracks, null, 2)
+      );
+
+      // Peupler les pistes audio et sous-titres
+      populateAudioTracks();
+      populateSubtitleTracks();
+
+      // Démarrer la lecture
+      if (startTimeSeconds > 0) {
+        videoElement.currentTime = startTimeSeconds;
       }
-    }, 1000);
-  };
 
-  // Événements de chargement
-  videoElement.onloadedmetadata = function () {
-    console.log("Métadonnées chargées, durée:", videoElement.duration);
-    if (startTimeSeconds > 0 && videoElement.duration > startTimeSeconds) {
-      videoElement.currentTime = startTimeSeconds;
+      videoElement
+        .play()
+        .then(() => {
+          console.log("Lecture démarrée avec succès");
+          toast("▶️ Lecture en cours", "✓");
+
+          // Re-peupler après un délai pour attraper les pistes qui arrivent tard
+          setTimeout(() => {
+            console.log("Re-vérification des pistes après 2s...");
+            console.log("Pistes audio après délai:", hls.audioTracks.length);
+            console.log("Sous-titres après délai:", hls.subtitleTracks.length);
+            populateAudioTracks();
+            populateSubtitleTracks();
+
+            // Si toujours pas de pistes, suggérer la détection avec ffprobe
+            if (
+              hls.audioTracks.length <= 1 &&
+              hls.subtitleTracks.length === 0
+            ) {
+              console.log(
+                "💡 Aucune piste alternative détectée dans le manifest HLS."
+              );
+              console.log(
+                "💡 Cliquez sur '🔍 Détecter les pistes' pour analyser le flux avec ffprobe."
+              );
+
+              // Afficher un message d'information
+              setTimeout(() => {
+                const infoMessage = document.getElementById("videoInfoMessage");
+                if (infoMessage) {
+                  infoMessage.classList.add("show");
+                }
+              }, 1000);
+            }
+          }, 2000);
+        })
+        .catch((err) => {
+          console.error("Erreur lors du démarrage:", err);
+          toast("❌ Erreur de lecture", "⚠️");
+        });
+    });
+
+    hls.on(Hls.Events.ERROR, function (event, data) {
+      if (hasError) return;
+      console.error("Erreur HLS:", data);
+
+      if (data.fatal) {
+        hasError = true;
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            console.error("Erreur réseau fatale");
+            toast("❌ Erreur réseau. Essayez VLC.", "⚠️");
+            setTimeout(() => {
+              if (confirm("Erreur réseau.\n\nVoulez-vous ouvrir avec VLC ?")) {
+                closeVideoPlayer();
+                playInVLC(url, startTimeSeconds);
+              }
+            }, 1000);
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            console.error("Erreur média fatale");
+            hls.recoverMediaError();
+            break;
+          default:
+            console.error("Erreur fatale non récupérable");
+            toast("❌ Impossible de lire ce flux", "⚠️");
+            break;
+        }
+      }
+    });
+
+    // Événement pour détecter les changements de pistes
+    hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, function (event, data) {
+      console.log("Piste audio changée:", data.id);
+    });
+
+    hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, function (event, data) {
+      console.log("Piste de sous-titres changée:", data.id);
+    });
+
+    // Écouter quand les pistes audio sont chargées/mises à jour
+    hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, function (event, data) {
+      console.log(
+        "🔊 AUDIO_TRACKS_UPDATED - Pistes audio mises à jour:",
+        data.audioTracks.length
+      );
+      console.log(
+        "Détails pistes audio:",
+        JSON.stringify(data.audioTracks, null, 2)
+      );
+      populateAudioTracks();
+    });
+
+    hls.on(Hls.Events.AUDIO_TRACK_LOADED, function (event, data) {
+      console.log("Piste audio chargée, ID:", data.id);
+      populateAudioTracks();
+    });
+
+    // Événement pour détecter quand les sous-titres sont chargés/mis à jour
+    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function (event, data) {
+      console.log(
+        "💬 SUBTITLE_TRACKS_UPDATED - Sous-titres mis à jour:",
+        data.subtitleTracks.length
+      );
+      console.log(
+        "Détails sous-titres:",
+        JSON.stringify(data.subtitleTracks, null, 2)
+      );
+      populateSubtitleTracks();
+    });
+
+    hls.on(Hls.Events.SUBTITLE_TRACK_LOADED, function (event, data) {
+      console.log("Sous-titre chargé, ID:", data.id);
+      populateSubtitleTracks();
+    });
+
+    // Événement quand les niveaux (qualités) sont chargés
+    hls.on(Hls.Events.LEVEL_LOADED, function (event, data) {
+      console.log(
+        "📊 LEVEL_LOADED - Niveau chargé, re-vérification des pistes..."
+      );
+      console.log("  → Audio tracks:", hls.audioTracks.length);
+      console.log("  → Subtitle tracks:", hls.subtitleTracks.length);
+      setTimeout(() => {
+        populateAudioTracks();
+        populateSubtitleTracks();
+      }, 500);
+    });
+  }
+  // Fallback pour les navigateurs avec support natif HLS (Safari) ou flux non-HLS
+  else {
+    console.log("Utilisation du lecteur HTML5 natif");
+
+    const source = document.createElement("source");
+    source.src = url;
+
+    if (isHLS) {
+      source.type = "application/x-mpegURL";
+    } else if (url.includes("format=ts") || url.includes(".ts")) {
+      source.type = "video/mp2t";
+    } else if (url.includes(".mp4")) {
+      source.type = "video/mp4";
     }
-  };
 
-  videoElement.oncanplay = function () {
-    console.log("Vidéo prête à être lue");
-    hasError = false; // Réinitialiser le flag d'erreur
-  };
+    videoElement.appendChild(source);
 
-  // Charger et lire
-  videoElement.load();
+    videoElement.onerror = function (e) {
+      if (hasError) return;
+      hasError = true;
+      console.error("Erreur de chargement vidéo:", e);
+      toast("❌ Impossible de lire ce flux. Essayez VLC.", "⚠️");
 
-  const playPromise = videoElement.play();
-  if (playPromise !== undefined) {
-    playPromise
+      setTimeout(() => {
+        if (
+          confirm(
+            "Impossible de lire le flux.\n\nVoulez-vous l'ouvrir avec VLC ?"
+          )
+        ) {
+          closeVideoPlayer();
+          playInVLC(url, startTimeSeconds);
+        } else {
+          closeVideoPlayer();
+        }
+      }, 1000);
+    };
+
+    videoElement.onloadedmetadata = function () {
+      console.log("Métadonnées chargées");
+      if (startTimeSeconds > 0) {
+        videoElement.currentTime = startTimeSeconds;
+      }
+      populateAudioTracks();
+      populateSubtitleTracks();
+    };
+
+    videoElement.load();
+    videoElement
+      .play()
       .then(() => {
-        console.log("Lecture démarrée avec succès");
+        console.log("Lecture démarrée");
         toast("▶️ Lecture en cours", "✓");
       })
       .catch((err) => {
-        console.error("Erreur lors du démarrage de la lecture:", err);
+        console.error("Erreur de lecture:", err);
         if (err.name !== "AbortError") {
-          hasError = true;
-          toast("❌ Erreur de lecture. Essayez VLC.", "⚠️");
+          toast("❌ Erreur de lecture", "⚠️");
         }
       });
   }
@@ -204,9 +440,234 @@ function playInPlayer(url, title = "Lecture en cours", startTimeSeconds = 0) {
   };
 }
 
+function populateAudioTracks() {
+  const audioSelect = document.getElementById("audioTrackSelect");
+  if (!audioSelect) return;
+
+  console.log("📢 populateAudioTracks appelée");
+
+  // Vider la liste
+  audioSelect.innerHTML = "";
+
+  // Utiliser HLS.js si disponible
+  if (hls && hls.audioTracks && hls.audioTracks.length > 0) {
+    console.log("✅ Pistes audio HLS détectées:", hls.audioTracks.length);
+    console.log("Piste audio active:", hls.audioTrack);
+
+    hls.audioTracks.forEach((track, index) => {
+      console.log(`  Piste ${index}:`, {
+        name: track.name,
+        lang: track.lang,
+        id: track.id,
+        groupId: track.groupId,
+      });
+      const option = document.createElement("option");
+      option.value = index;
+      option.textContent =
+        track.name || track.lang || `Piste audio ${index + 1}`;
+      if (index === hls.audioTrack) {
+        option.selected = true;
+      }
+      audioSelect.appendChild(option);
+    });
+  } else {
+    console.log("❌ Aucune piste audio HLS détectée");
+    console.log("  hls:", hls ? "existe" : "null");
+    console.log(
+      "  hls.audioTracks:",
+      hls && hls.audioTracks ? hls.audioTracks.length : "N/A"
+    );
+
+    // Fallback pour HTML5 natif
+    const videoElement = document.getElementById("videoPlayer");
+    const audioTracks = videoElement ? videoElement.audioTracks : null;
+
+    if (audioTracks && audioTracks.length > 0) {
+      console.log("✅ Pistes audio HTML5 détectées:", audioTracks.length);
+      for (let i = 0; i < audioTracks.length; i++) {
+        const track = audioTracks[i];
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent =
+          track.label || track.language || `Piste audio ${i + 1}`;
+        if (track.enabled) option.selected = true;
+        audioSelect.appendChild(option);
+      }
+    } else {
+      console.log("❌ Aucune piste audio HTML5 détectée");
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "Aucune piste audio disponible";
+      audioSelect.appendChild(option);
+    }
+  }
+}
+
+function populateSubtitleTracks() {
+  const subtitleSelect = document.getElementById("subtitleTrackSelect");
+  if (!subtitleSelect) return;
+
+  console.log("📢 populateSubtitleTracks appelée");
+
+  // Vider la liste
+  subtitleSelect.innerHTML = "";
+
+  // Option pour désactiver les sous-titres
+  const offOption = document.createElement("option");
+  offOption.value = "-1";
+  offOption.textContent = "Désactivé";
+  offOption.selected = true;
+  subtitleSelect.appendChild(offOption);
+
+  // Utiliser HLS.js si disponible
+  if (hls && hls.subtitleTracks && hls.subtitleTracks.length > 0) {
+    console.log(
+      "✅ Pistes de sous-titres HLS détectées:",
+      hls.subtitleTracks.length
+    );
+    console.log("Piste de sous-titre active:", hls.subtitleTrack);
+
+    hls.subtitleTracks.forEach((track, index) => {
+      console.log(`  Sous-titre ${index}:`, {
+        name: track.name,
+        lang: track.lang,
+        id: track.id,
+        type: track.type,
+      });
+      const option = document.createElement("option");
+      option.value = index;
+      option.textContent =
+        track.name || track.lang || `Sous-titre ${index + 1}`;
+      if (index === hls.subtitleTrack) {
+        option.selected = true;
+      }
+      subtitleSelect.appendChild(option);
+    });
+
+    // Si une piste est active, la sélectionner
+    if (hls.subtitleTrack >= 0) {
+      subtitleSelect.value = hls.subtitleTrack;
+    }
+  } else {
+    console.log("❌ Aucune piste de sous-titres HLS détectée");
+    console.log("  hls:", hls ? "existe" : "null");
+    console.log(
+      "  hls.subtitleTracks:",
+      hls && hls.subtitleTracks ? hls.subtitleTracks.length : "N/A"
+    );
+
+    // Fallback pour HTML5 natif
+    const videoElement = document.getElementById("videoPlayer");
+    const textTracks = videoElement ? videoElement.textTracks : null;
+
+    if (textTracks && textTracks.length > 0) {
+      console.log(
+        "✅ Pistes de sous-titres HTML5 détectées:",
+        textTracks.length
+      );
+      for (let i = 0; i < textTracks.length; i++) {
+        const track = textTracks[i];
+        if (track.kind === "subtitles" || track.kind === "captions") {
+          const option = document.createElement("option");
+          option.value = i;
+          option.textContent =
+            track.label || track.language || `Sous-titre ${i + 1}`;
+          if (track.mode === "showing") option.selected = true;
+          subtitleSelect.appendChild(option);
+        }
+      }
+    } else {
+      console.log("❌ Aucune piste de sous-titres HTML5 détectée");
+    }
+  }
+}
+
+// Remplir les menus avec les pistes détectées par ffprobe
+function populateTracksFromFFprobe(audioTracks, subtitleTracks) {
+  const audioSelect = document.getElementById("audioTrackSelect");
+  const subtitleSelect = document.getElementById("subtitleTrackSelect");
+  const infoMessage = document.getElementById("videoInfoMessage");
+
+  let hasMultipleTracks = false;
+
+  if (audioSelect && audioTracks && audioTracks.length > 0) {
+    audioSelect.innerHTML = "";
+    audioTracks.forEach((track, index) => {
+      const option = document.createElement("option");
+      option.value = track.index;
+      option.textContent = `${track.title} (${track.language}) - ${track.codec}`;
+      option.dataset.streamIndex = track.index;
+      if (index === 0) option.selected = true;
+      audioSelect.appendChild(option);
+    });
+    toast(`✅ ${audioTracks.length} piste(s) audio détectée(s)`, "🔊");
+    hasMultipleTracks = audioTracks.length > 1;
+
+    // Ajouter un message d'info
+    console.log(
+      "ℹ️ Les pistes sont détectées mais le lecteur HTML5 ne peut pas les changer."
+    );
+    console.log(
+      "💡 Solution: Utilisez le bouton 'Ouvrir dans VLC' pour sélectionner les pistes."
+    );
+  } else if (audioSelect) {
+    audioSelect.innerHTML =
+      '<option value="">Aucune piste audio détectée</option>';
+  }
+
+  if (subtitleSelect && subtitleTracks && subtitleTracks.length > 0) {
+    // Garder l'option "Désactivé"
+    const currentOptions = Array.from(subtitleSelect.options);
+    const disabledOption = currentOptions.find((opt) => opt.value === "-1");
+
+    subtitleSelect.innerHTML = "";
+    if (disabledOption) {
+      subtitleSelect.appendChild(disabledOption);
+    }
+
+    subtitleTracks.forEach((track, index) => {
+      const option = document.createElement("option");
+      option.value = track.index;
+      option.textContent = `${track.title} (${track.language}) - ${track.codec}`;
+      option.dataset.streamIndex = track.index;
+      subtitleSelect.appendChild(option);
+    });
+    toast(
+      `✅ ${subtitleTracks.length} sous-titre(s) détecté(s) - Utilisez VLC pour les afficher`,
+      "💬"
+    );
+    hasMultipleTracks = true;
+
+    console.log(
+      "⚠️ Les sous-titres sont détectés mais le lecteur HTML5 ne peut PAS les afficher."
+    );
+    console.log(
+      "💡 Solution: Sélectionnez un sous-titre et vous serez invité à ouvrir dans VLC."
+    );
+  }
+
+  // Afficher le message d'info si plusieurs pistes sont disponibles
+  if (infoMessage && hasMultipleTracks) {
+    infoMessage.classList.add("show");
+  }
+
+  console.log(
+    "📋 Pistes ajoutées aux menus. Note: Le lecteur intégré ne supporte pas le changement de pistes multiplexées."
+  );
+  console.log(
+    "💡 Recommandation: Cliquez sur 'Ouvrir dans VLC' pour profiter de toutes les fonctionnalités."
+  );
+}
+
 function closeVideoPlayer() {
   const modal = document.getElementById("videoPlayerModal");
   modal.classList.remove("show");
+
+  // Nettoyer HLS.js
+  if (hls) {
+    hls.destroy();
+    hls = null;
+  }
 
   const videoElement = document.getElementById("videoPlayer");
   if (videoElement) {
@@ -261,12 +722,9 @@ function loadPlayerPref() {
 }
 
 function playMedia(url, title, startTime = 0) {
-  if (defaultPlayer === "vlc") {
-    playInVLC(url, startTime);
-  } else {
-    // Utiliser le lecteur HTML5 natif
-    playInPlayer(url, title, startTime);
-  }
+  // Toujours utiliser VLC pour la lecture
+  toast(`📺 Ouverture dans VLC: ${title}`, "▶️");
+  playInVLC(url, startTime);
 }
 
 function setListMeta(count, total = null) {
@@ -1427,20 +1885,8 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("xtPass").value = saved.password || "";
   }
 
-  // Load player preference
-  defaultPlayer = loadPlayerPref();
-  const playerSelect = document.getElementById("defaultPlayer");
-  if (playerSelect) {
-    playerSelect.value = defaultPlayer;
-    playerSelect.addEventListener("change", (e) => {
-      defaultPlayer = e.target.value;
-      savePlayerPref(defaultPlayer);
-      toast(
-        `Lecteur : ${defaultPlayer === "internal" ? "Intégré" : "VLC"}`,
-        "🎬"
-      );
-    });
-  }
+  // Toujours utiliser VLC comme lecteur
+  defaultPlayer = "vlc";
 
   updateCacheStats();
   setupTvNav();
@@ -1535,6 +1981,8 @@ window.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("testStream")
     ?.addEventListener("click", testCurrentStream);
+
+  // Les contrôles vidéo ne sont plus nécessaires car on utilise uniquement VLC
 
   // Filters
   document
