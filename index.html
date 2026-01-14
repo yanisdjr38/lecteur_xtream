@@ -1,11 +1,9 @@
 <!doctype html>
 <html lang="fr">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>IPTV Player</title>
-
+  <title>IPTV Player Pro</title>
   <style>
     :root {
       --bg: #0b0f19;
@@ -22,9 +20,7 @@
       --radius: 14px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -33,11 +29,7 @@
       color: var(--text);
     }
 
-    .wrap {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 18px;
-    }
+    .wrap { max-width: 1240px; margin: 0 auto; padding: 18px; }
 
     .topbar {
       display: flex;
@@ -47,42 +39,81 @@
       margin-bottom: 14px;
     }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .brand { display: flex; align-items: center; gap: 10px; }
 
     .logo {
-      width: 38px;
-      height: 38px;
+      width: 38px; height: 38px;
       border-radius: 12px;
       background: linear-gradient(135deg, var(--accent), #7c5cff);
       box-shadow: var(--shadow);
-    }
-
-    .brand h1 {
-      margin: 0;
+      display: flex; align-items: center; justify-content: center;
       font-size: 18px;
-      letter-spacing: .2px;
     }
 
-    .brand p {
-      margin: 0;
+    .brand h1 { margin: 0; font-size: 18px; }
+    .brand p { margin: 0; font-size: 12px; color: var(--muted); }
+
+    /* Network Quality Indicator */
+    .network-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
       font-size: 12px;
-      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
     }
+
+    .network-indicator:hover { border-color: var(--accent); }
+
+    .quality-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+
+    .quality-dot.excellent { background: #20c997; box-shadow: 0 0 8px #20c997; }
+    .quality-dot.good { background: #5b9dff; box-shadow: 0 0 8px #5b9dff; }
+    .quality-dot.fair { background: #f0ad4e; box-shadow: 0 0 8px #f0ad4e; }
+    .quality-dot.poor { background: #ff8c42; box-shadow: 0 0 8px #ff8c42; }
+    .quality-dot.bad { background: #ff5b6e; box-shadow: 0 0 8px #ff5b6e; }
+
+    .quality-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 14px;
+    }
+
+    .quality-bars span {
+      width: 4px;
+      background: var(--muted);
+      border-radius: 1px;
+      transition: all 0.3s;
+    }
+
+    .quality-bars span:nth-child(1) { height: 4px; }
+    .quality-bars span:nth-child(2) { height: 7px; }
+    .quality-bars span:nth-child(3) { height: 10px; }
+    .quality-bars span:nth-child(4) { height: 14px; }
+
+    .quality-bars.level-4 span { background: #20c997; }
+    .quality-bars.level-3 span:nth-child(-n+3) { background: #5b9dff; }
+    .quality-bars.level-2 span:nth-child(-n+2) { background: #f0ad4e; }
+    .quality-bars.level-1 span:nth-child(1) { background: #ff5b6e; }
 
     .grid {
       display: grid;
-      grid-template-columns: 380px 1fr;
+      grid-template-columns: 400px 1fr;
       gap: 14px;
     }
 
-    @media (max-width: 980px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 1000px) {
+      .grid { grid-template-columns: 1fr; }
     }
 
     .card {
@@ -92,9 +123,7 @@
       box-shadow: var(--shadow);
     }
 
-    .section {
-      padding: 14px;
-    }
+    .section { padding: 14px; }
 
     .section h2 {
       margin: 0 0 10px 0;
@@ -103,29 +132,18 @@
       font-weight: 600;
       letter-spacing: .3px;
       text-transform: uppercase;
-    }
-
-    .row {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
     }
 
-    label {
-      display: block;
-      font-size: 12px;
-      color: var(--muted);
-      margin: 0 0 6px;
-    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
 
-    .field {
-      flex: 1;
-      min-width: 150px;
-    }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 0 0 6px; }
 
-    input,
-    select,
-    button {
+    .field { flex: 1; min-width: 140px; }
+
+    input, select, button {
       width: 100%;
       border-radius: 12px;
       border: 1px solid var(--border);
@@ -136,12 +154,9 @@
       outline: none;
     }
 
-    input::placeholder {
-      color: rgba(159, 176, 208, .7);
-    }
+    input::placeholder { color: rgba(159, 176, 208, .7); }
 
-    input:focus,
-    select:focus {
+    input:focus, select:focus {
       border-color: rgba(91, 157, 255, .55);
       box-shadow: 0 0 0 3px rgba(91, 157, 255, .15);
     }
@@ -152,67 +167,121 @@
       user-select: none;
     }
 
-    .btn:active {
-      transform: translateY(1px);
-    }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .btn-primary {
       background: linear-gradient(135deg, rgba(91, 157, 255, .9), rgba(124, 92, 255, .85));
       border-color: rgba(91, 157, 255, .35);
     }
 
-    .btn-primary:hover {
-      border-color: rgba(91, 157, 255, .6);
+    .btn-primary:hover:not(:disabled) { border-color: rgba(91, 157, 255, .6); }
+    .btn-ghost { background: rgba(255, 255, 255, .03); }
+    .btn-danger { background: rgba(255, 91, 110, .12); border-color: rgba(255, 91, 110, .22); color: #ffd0d6; }
+    .btn-secondary { background: rgba(32, 201, 151, .15); border-color: rgba(32, 201, 151, .3); color: #b8fff0; }
+    .btn-warning { background: rgba(240, 173, 78, .15); border-color: rgba(240, 173, 78, .3); color: #ffe4b8; }
+
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+
+    .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+    /* Cache Stats Panel */
+    .cache-panel {
+      background: rgba(0, 0, 0, .2);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 10px;
     }
 
-    .btn-ghost {
+    .cache-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .cache-stat {
       background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
     }
 
-    .btn-danger {
-      background: rgba(255, 91, 110, .12);
-      border-color: rgba(255, 91, 110, .22);
-      color: #ffd0d6;
+    .cache-stat .value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
     }
 
-    .btn-secondary {
-      background: rgba(32, 201, 151, .15);
-      border-color: rgba(32, 201, 151, .3);
-      color: #b8fff0;
+    .cache-stat .label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
     }
 
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 12px 0;
+    .cache-progress {
+      height: 8px;
+      background: rgba(255, 255, 255, .1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 10px 0;
     }
 
-    /* RIGHT AREA: list + details */
+    .cache-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .cache-progress-bar.warning { background: linear-gradient(90deg, var(--warning), #ff8c42); }
+    .cache-progress-bar.danger { background: linear-gradient(90deg, var(--danger), #ff3d5a); }
+
+    .cache-actions { display: flex; gap: 8px; }
+    .cache-actions button { flex: 1; }
+
+    /* Preload Panel */
+    .preload-panel {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(32, 201, 151, .05);
+      border: 1px solid rgba(32, 201, 151, .2);
+      border-radius: 10px;
+    }
+
+    .preload-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .preload-spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent2);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Right Panel */
     .catalogShell {
       display: grid;
       grid-template-columns: 1fr 340px;
-      min-height: 580px;
+      min-height: 600px;
     }
 
-    @media (max-width: 980px) {
-      .catalogShell {
-        grid-template-columns: 1fr;
-      }
-
-      .detailsPane {
-        border-left: none !important;
-        border-top: 1px solid var(--border);
-      }
+    @media (max-width: 1000px) {
+      .catalogShell { grid-template-columns: 1fr; }
+      .detailsPane { border-left: none !important; border-top: 1px solid var(--border); }
     }
 
-    .listPane {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .detailsPane {
-      border-left: 1px solid var(--border);
-    }
+    .listPane { display: flex; flex-direction: column; }
+    .detailsPane { border-left: 1px solid var(--border); }
 
     .listHead {
       display: flex;
@@ -223,15 +292,8 @@
       border-bottom: 1px solid var(--border);
     }
 
-    .listHead .title {
-      font-weight: 700;
-      font-size: 14px;
-    }
-
-    .listHead .meta {
-      color: var(--muted);
-      font-size: 12px;
-    }
+    .listHead .title { font-weight: 700; font-size: 14px; }
+    .listHead .meta { color: var(--muted); font-size: 12px; }
 
     .listTools {
       display: flex;
@@ -241,13 +303,8 @@
       flex-wrap: wrap;
     }
 
-    .listTools button {
-      width: auto;
-      padding: 8px 10px;
-      font-size: 13px;
-    }
+    .listTools button { width: auto; padding: 8px 10px; font-size: 13px; }
 
-    /* PAGINATION */
     .pagination {
       display: flex;
       align-items: center;
@@ -258,27 +315,9 @@
       background: rgba(0, 0, 0, .15);
     }
 
-    .pagination button {
-      width: auto;
-      padding: 8px 14px;
-      font-size: 13px;
-      min-width: 44px;
-    }
-
-    .pagination .page-info {
-      color: var(--muted);
-      font-size: 13px;
-      padding: 0 12px;
-      min-width: 120px;
-      text-align: center;
-    }
-
-    .pagination .page-select {
-      width: auto;
-      min-width: 70px;
-      padding: 8px 10px;
-      font-size: 13px;
-    }
+    .pagination button { width: auto; padding: 8px 14px; font-size: 13px; min-width: 44px; }
+    .pagination .page-info { color: var(--muted); font-size: 13px; padding: 0 12px; min-width: 120px; text-align: center; }
+    .pagination .page-select { width: auto; min-width: 70px; padding: 8px 10px; font-size: 13px; }
 
     #list {
       padding: 10px;
@@ -298,11 +337,12 @@
       border: 1px solid var(--border);
       border-radius: 14px;
       background: rgba(255, 255, 255, .03);
+      transition: all 0.15s;
     }
 
-    /* TV focus */
-    .item[tabindex="0"]:focus,
-    button:focus {
+    .item:hover { background: rgba(255, 255, 255, .05); }
+
+    .item[tabindex="0"]:focus, button:focus {
       outline: none;
       box-shadow: 0 0 0 3px rgba(91, 157, 255, .22);
       border-color: rgba(91, 157, 255, .55);
@@ -314,8 +354,7 @@
     }
 
     .thumb {
-      width: 52px;
-      height: 52px;
+      width: 52px; height: 52px;
       border-radius: 12px;
       background: rgba(255, 255, 255, .06);
       border: 1px solid var(--border);
@@ -325,28 +364,27 @@
       align-items: center;
       justify-content: center;
       color: rgba(159, 176, 208, .9);
-      font-size: 12px;
+      font-size: 11px;
+      position: relative;
     }
 
-    .thumb img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .thumb .cached-badge {
+      position: absolute;
+      bottom: 2px; right: 2px;
+      width: 12px; height: 12px;
+      background: var(--accent2);
+      border-radius: 50%;
+      font-size: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #000;
     }
 
-    .info {
-      min-width: 0;
-      flex: 1;
-    }
-
-    .name {
-      font-weight: 650;
-      font-size: 14px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .info { min-width: 0; flex: 1; }
+    .name { font-weight: 650; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .sub {
       margin-top: 2px;
@@ -367,61 +405,21 @@
       font-size: 12px;
     }
 
-    .badge.accent {
-      border-color: rgba(91, 157, 255, .35);
-      color: rgba(200, 220, 255, .95);
-    }
+    .badge.accent { border-color: rgba(91, 157, 255, .35); color: rgba(200, 220, 255, .95); }
+    .badge.good { border-color: rgba(32, 201, 151, .35); color: rgba(190, 255, 235, .95); }
+    .badge.live { border-color: rgba(255, 91, 110, .5); background: rgba(255, 91, 110, .15); color: #ff9aa8; animation: pulse 2s infinite; }
+    .badge.cached { border-color: rgba(32, 201, 151, .5); background: rgba(32, 201, 151, .15); color: #b8fff0; }
 
-    .badge.good {
-      border-color: rgba(32, 201, 151, .35);
-      color: rgba(190, 255, 235, .95);
-    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
-    .badge.live {
-      border-color: rgba(255, 91, 110, .5);
-      background: rgba(255, 91, 110, .15);
-      color: #ff9aa8;
-      animation: pulse 2s infinite;
-    }
+    .actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    .actions button { width: auto; padding: 10px 12px; font-size: 14px; white-space: nowrap; }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-
-    .actions {
-      display: flex;
-      gap: 8px;
-      flex: 0 0 auto;
-    }
-
-    .actions button {
-      width: auto;
-      padding: 10px 12px;
-      font-size: 14px;
-      white-space: nowrap;
-    }
-
-    /* EPG Info in item */
-    .epg-now {
-      font-size: 11px;
-      color: var(--accent2);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 200px;
-    }
+    .epg-now { font-size: 11px; color: var(--accent2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
 
     /* Details panel */
-    .detailsWrap {
-      padding: 12px 14px;
-    }
-
-    .detailsTitle {
-      font-weight: 800;
-      font-size: 14px;
-      margin: 0 0 8px;
-    }
+    .detailsWrap { padding: 12px 14px; }
+    .detailsTitle { font-weight: 800; font-size: 14px; margin: 0 0 8px; }
 
     .detailsPoster {
       width: 100%;
@@ -435,142 +433,123 @@
       justify-content: center;
       color: rgba(159, 176, 208, .8);
       margin-bottom: 10px;
+      position: relative;
     }
 
-    .detailsPoster img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
+    .detailsPoster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .detailsMeta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .detailsSynopsis { color: rgba(232, 238, 252, .92); font-size: 13px; line-height: 1.35; white-space: pre-wrap; }
+
+    /* Stream Quality in Details */
+    .stream-quality {
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(0, 0, 0, .2);
+      border-radius: 10px;
     }
 
-    .detailsMeta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 10px;
-    }
-
-    .detailsSynopsis {
-      color: rgba(232, 238, 252, .92);
-      font-size: 13px;
-      line-height: 1.35;
-      white-space: pre-wrap;
-    }
-
-    /* EPG Section in details */
-    .epgSection {
-      margin-top: 14px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border);
-    }
-
-    .epgSection h3 {
+    .stream-quality h4 {
+      margin: 0 0 8px;
       font-size: 12px;
       color: var(--muted);
-      margin: 0 0 10px;
       text-transform: uppercase;
-      letter-spacing: .3px;
     }
 
-    .epgItem {
+    .quality-test-result {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .quality-metric {
+      background: rgba(255, 255, 255, .03);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .quality-metric .value { font-size: 16px; font-weight: 700; color: var(--accent); }
+    .quality-metric .label { font-size: 10px; color: var(--muted); }
+
+    /* EPG Section */
+    .epgSection { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .epgSection h3 { font-size: 12px; color: var(--muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: .3px; }
+
+    .epgItem { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, .04); }
+    .epgItem:last-child { border-bottom: none; }
+
+    .epgTime { font-size: 12px; color: var(--accent); min-width: 90px; flex-shrink: 0; }
+    .epgTime.now { color: var(--accent2); font-weight: 600; }
+    .epgTitle { font-size: 12px; color: var(--text); flex: 1; }
+
+    .epgProgress { height: 3px; background: rgba(255, 255, 255, .1); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+    .epgProgressBar { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 2px; }
+
+    .epgLoading { font-size: 12px; color: var(--muted); font-style: italic; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
       display: flex;
-      gap: 10px;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, .04);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
     }
 
-    .epgItem:last-child {
-      border-bottom: none;
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+
+    .modal {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
     }
 
-    .epgTime {
-      font-size: 12px;
-      color: var(--accent);
-      min-width: 90px;
-      flex-shrink: 0;
+    .modal-header {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
-    .epgTime.now {
-      color: var(--accent2);
-      font-weight: 600;
-    }
+    .modal-header h3 { margin: 0; font-size: 16px; }
+    .modal-body { padding: 14px; }
+    .modal-close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 0; width: auto; }
 
-    .epgTitle {
-      font-size: 12px;
-      color: var(--text);
-      flex: 1;
-    }
-
-    .epgProgress {
-      height: 3px;
-      background: rgba(255, 255, 255, .1);
-      border-radius: 2px;
-      margin-top: 6px;
-      overflow: hidden;
-    }
-
-    .epgProgressBar {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent2), var(--accent));
-      border-radius: 2px;
-      transition: width 0.3s ease;
-    }
-
-    .epgLoading {
-      font-size: 12px;
-      color: var(--muted);
-      font-style: italic;
-    }
-
-    /* TOAST */
+    /* Toast */
     #toast {
       position: fixed;
-      left: 50%;
-      bottom: 18px;
+      left: 50%; bottom: 18px;
       transform: translateX(-50%);
-      background: rgba(17, 24, 42, .92);
+      background: rgba(17, 24, 42, .95);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 10px 12px;
+      padding: 10px 16px;
       border-radius: 12px;
       box-shadow: var(--shadow);
       font-size: 13px;
       opacity: 0;
       pointer-events: none;
       transition: opacity .2s ease, transform .2s ease;
-      z-index: 1000;
-    }
-
-    #toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(-4px);
-    }
-
-    /* Loading indicator */
-    .loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(11, 15, 25, .85);
+      z-index: 1001;
       display: flex;
       align-items: center;
-      justify-content: center;
-      border-radius: var(--radius);
-      z-index: 10;
+      gap: 8px;
     }
 
-    .spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    #toast .toast-icon { font-size: 16px; }
   </style>
 </head>
 
@@ -578,11 +557,20 @@
   <div class="wrap">
     <div class="topbar">
       <div class="brand">
-        <div class="logo"></div>
+        <div class="logo">📺</div>
         <div>
-          <h1>IPTV Player</h1>
-          <p>Xtream + M3U • EPG • Pagination</p>
+          <h1>IPTV Player Pro</h1>
+          <p>Cache • Performance • EPG</p>
         </div>
+      </div>
+
+      <!-- Network Quality Indicator -->
+      <div class="network-indicator" id="networkIndicator" title="Cliquez pour tester la connexion">
+        <div class="quality-bars" id="qualityBars">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <span id="networkStatus">Vérification...</span>
+        <span id="networkLatency"></span>
       </div>
     </div>
 
@@ -590,7 +578,7 @@
       <!-- LEFT: controls -->
       <div class="card">
         <div class="section">
-          <h2>Connexion Xtream</h2>
+          <h2>🔌 Connexion Xtream</h2>
           <div class="row">
             <div class="field">
               <label>Domaine</label>
@@ -611,12 +599,12 @@
 
           <div class="row">
             <button id="xtLoad" class="btn btn-primary">Charger</button>
-            <button id="xtForget" class="btn btn-danger" type="button">Oublier</button>
+            <button id="xtForget" class="btn btn-danger">Oublier</button>
           </div>
 
           <div class="divider"></div>
 
-          <h2>Filtres</h2>
+          <h2>🎛️ Filtres</h2>
           <div class="row">
             <div class="field">
               <label>Type</label>
@@ -626,25 +614,19 @@
                 <option value="series">Séries</option>
               </select>
             </div>
-
             <div class="field">
               <label>Catégories</label>
-              <select id="categories">
-                <option value="">Toutes les catégories</option>
-              </select>
+              <select id="categories"><option value="">Toutes</option></select>
             </div>
           </div>
 
           <div class="row">
             <div class="field">
               <label>Pays</label>
-              <select id="country">
-                <option value="">Tous les pays</option>
-              </select>
+              <select id="country"><option value="">Tous</option></select>
             </div>
-
             <div class="field">
-              <label>Format live</label>
+              <label>Format</label>
               <select id="format">
                 <option value="ts">ts</option>
                 <option value="m3u8">m3u8</option>
@@ -655,25 +637,62 @@
           <div class="row">
             <div class="field">
               <label>Recherche</label>
-              <input id="search" placeholder="Rechercher (titre...)" />
+              <input id="search" placeholder="Rechercher..." />
             </div>
-          </div>
-
-          <div class="row">
-            <div class="field">
+            <div class="field" style="max-width: 100px;">
               <label>Par page</label>
               <select id="perPage">
                 <option value="25">25</option>
                 <option value="50" selected>50</option>
                 <option value="100">100</option>
-                <option value="200">200</option>
               </select>
             </div>
           </div>
 
           <div class="divider"></div>
 
-          <h2>Mode M3U (optionnel)</h2>
+          <!-- Cache Management -->
+          <h2>💾 Cache & Performance</h2>
+          <div class="cache-panel">
+            <div class="cache-stats">
+              <div class="cache-stat">
+                <div class="value" id="cacheImages">0</div>
+                <div class="label">Images</div>
+              </div>
+              <div class="cache-stat">
+                <div class="value" id="cacheData">0</div>
+                <div class="label">Données</div>
+              </div>
+              <div class="cache-stat">
+                <div class="value" id="cacheSize">0 MB</div>
+                <div class="label">Taille</div>
+              </div>
+              <div class="cache-stat">
+                <div class="value" id="cachePercent">0%</div>
+                <div class="label">Utilisé</div>
+              </div>
+            </div>
+
+            <div class="cache-progress">
+              <div class="cache-progress-bar" id="cacheProgressBar" style="width: 0%"></div>
+            </div>
+
+            <div class="cache-actions">
+              <button id="preloadImages" class="btn btn-secondary btn-sm">⬇️ Précharger</button>
+              <button id="clearCache" class="btn btn-warning btn-sm">🗑️ Vider cache</button>
+            </div>
+
+            <div class="preload-panel" id="preloadPanel" style="display: none;">
+              <div class="preload-status">
+                <div class="preload-spinner"></div>
+                <span id="preloadStatus">Préchargement en cours...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <h2>📁 Mode M3U</h2>
           <div class="row">
             <div class="field">
               <label>URL M3U</label>
@@ -682,13 +701,13 @@
           </div>
           <div class="row">
             <button id="loadUrl" class="btn btn-ghost">Charger URL</button>
-            <input id="file" type="file" accept=".m3u,.m3u8" />
+            <input id="file" type="file" accept=".m3u,.m3u8" style="font-size: 12px;" />
           </div>
         </div>
       </div>
 
       <!-- RIGHT: list + details -->
-      <div class="card" style="position: relative;">
+      <div class="card">
         <div class="catalogShell">
           <div class="listPane">
             <div class="listHead">
@@ -699,11 +718,11 @@
             </div>
 
             <div class="listTools">
-              <button id="toggleFavOnly" class="btn btn-ghost" type="button">⭐ Favoris : OFF</button>
-              <button id="toggleEPG" class="btn btn-secondary" type="button">📺 EPG : ON</button>
+              <button id="toggleFavOnly" class="btn btn-ghost">⭐ Favoris : OFF</button>
+              <button id="toggleEPG" class="btn btn-secondary">📺 EPG : ON</button>
+              <button id="toggleCache" class="btn btn-secondary">💾 Cache : ON</button>
             </div>
 
-            <!-- PAGINATION -->
             <div class="pagination">
               <button id="pageFirst" class="btn btn-ghost">⏮</button>
               <button id="pagePrev" class="btn btn-ghost">◀</button>
@@ -722,8 +741,31 @@
               <div class="detailsPoster" id="detailsPoster">Aucune sélection</div>
               <div class="detailsMeta" id="detailsMeta"></div>
               <div class="detailsSynopsis" id="detailsSynopsis"></div>
-              
-              <!-- EPG Section -->
+
+              <!-- Stream Quality Test -->
+              <div class="stream-quality" id="streamQuality" style="display: none;">
+                <h4>📊 Qualité du flux</h4>
+                <div class="quality-test-result" id="qualityTestResult">
+                  <div class="quality-metric">
+                    <div class="value" id="streamSpeed">--</div>
+                    <div class="label">Mbps</div>
+                  </div>
+                  <div class="quality-metric">
+                    <div class="value" id="streamLatency">--</div>
+                    <div class="label">Latence (ms)</div>
+                  </div>
+                  <div class="quality-metric">
+                    <div class="value" id="streamRecommended">--</div>
+                    <div class="label">Qualité rec.</div>
+                  </div>
+                  <div class="quality-metric">
+                    <div class="value" id="streamStatus">--</div>
+                    <div class="label">Statut</div>
+                  </div>
+                </div>
+                <button id="testStream" class="btn btn-ghost btn-sm" style="margin-top: 10px; width: 100%;">🔄 Tester le flux</button>
+              </div>
+
               <div class="epgSection" id="epgSection" style="display: none;">
                 <h3>📺 Programme TV</h3>
                 <div id="epgContent"></div>
@@ -732,7 +774,28 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
 
+  <!-- Clear Cache Modal -->
+  <div class="modal-overlay" id="clearCacheModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🗑️ Vider le cache</h3>
+        <button class="modal-close" onclick="closeClearCacheModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin: 0 0 14px; color: var(--muted); font-size: 13px;">Choisissez ce que vous voulez supprimer :</p>
+        <div class="row" style="margin-bottom: 10px;">
+          <button id="clearImages" class="btn btn-warning" style="flex: 1;">🖼️ Images uniquement</button>
+        </div>
+        <div class="row" style="margin-bottom: 10px;">
+          <button id="clearData" class="btn btn-warning" style="flex: 1;">📄 Données uniquement</button>
+        </div>
+        <div class="row">
+          <button id="clearAll" class="btn btn-danger" style="flex: 1;">⚠️ Tout supprimer</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -740,5 +803,4 @@
 
   <script src="./renderer.js"></script>
 </body>
-
 </html>
