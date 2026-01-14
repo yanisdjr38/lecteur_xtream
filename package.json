@@ -3,17 +3,50 @@
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux deb AppImage",
+    "build:dir": "electron-builder --dir -c.extraMetadata.name=iptv-player"
   },
   "keywords": [],
-  "author": "",
+  "author": {
+    "name": "IPTV Player",
+    "email": "iptv@player.local"
+  },
   "license": "ISC",
-  "description": "",
+  "description": "Lecteur IPTV pour Xtream Codes",
   "devDependencies": {
-    "electron": "^39.2.7"
+    "electron": "^39.2.7",
+    "electron-builder": "^26.4.0"
   },
   "dependencies": {
     "git": "^0.1.5",
     "lfs": "^0.0.4"
+  },
+  "build": {
+    "appId": "com.iptv.player",
+    "productName": "IPTV Player",
+    "files": [
+      "main.js",
+      "renderer.js",
+      "index.html",
+      "node_modules"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "icon": "build/icon.png",
+      "category": "Video"
+    },
+    "deb": {
+      "depends": [
+        "vlc"
+      ]
+    }
   }
 }
